@@ -17,20 +17,30 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from './color';
 
 const STORAGE_KEY = "@toDos";
+const IS_WORK = "@work";
 
 export default function App() {
   const [working, setWorking] = useState(true);
   const [text, setText] = useState("");
   const [toDos, setToDos] = useState({});
+
   useEffect(() => {
+    getWorkMod();
     loadToDos();
   }, []);
-  const travel = () => setWorking(false);
-  const work = () => setWorking(true);
+
+  const travel = () => setWorkMod(false);
+  const work = () => setWorkMod(true);
   const onChangeText = (payload) => setText(payload)
 
-  const saveToDos = async (toSave) => {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  const setWorkMod = async (value) => {
+    setWorking(value);
+    await AsyncStorage.setItem(IS_WORK, JSON.stringify(value));
+  };
+
+  const getWorkMod = async () => {
+    const w = await AsyncStorage.getItem(IS_WORK);
+    setWorking(JSON.parse(w));
   };
 
   const loadToDos = async () => {
