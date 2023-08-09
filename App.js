@@ -15,6 +15,9 @@ import {
 import { Fontisto } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from './color';
+import BouncyCheckbox from "react-native-bouncy-checkbox";
+import { Feather } from "@expo/vector-icons";
+import { MaterialIcons } from "@expo/vector-icons";
 
 const STORAGE_KEY = "@toDos";
 const IS_WORK = "@work";
@@ -23,32 +26,70 @@ export default function App() {
   const [working, setWorking] = useState(true);
   const [text, setText] = useState("");
   const [toDos, setToDos] = useState({});
+  const [edit, setEdit] = useState(false); // 리렌더링을 위해 정의
 
   useEffect(() => {
     getWorkMod();
     loadToDos();
   }, []);
 
+  const clearAsyncStorage = async () => {
+    AsyncStorage.clear();
+  };
+
   const travel = () => setWorkMod(false);
   const work = () => setWorkMod(true);
   const onChangeText = (payload) => setText(payload)
+  const onEditChangeText = (payload) => {
+    setToDos({
+      ...toDos,
+      [payload.key]: { ...toDos[payload.key], text: payload.text },
+    });
+  };
+
+  const saveToDos = async (toSave) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleCheck = (key) => {
+    if (toDos[key].checked === false) {
+      toDos[key] = { ...toDos[key], checked: true };
+    } else {
+      toDos[key] = { ...toDos[key], checked: false };
+    }
+    const newToDos = { ...toDos, [key]: toDos[key] };
+    setToDos(newToDos);
+    saveToDos(newToDos);
+  };
 
   const setWorkMod = async (value) => {
     setWorking(value);
     await AsyncStorage.setItem(IS_WORK, JSON.stringify(value));
   };
 
+
   const getWorkMod = async () => {
     const w = await AsyncStorage.getItem(IS_WORK);
-    setWorking(JSON.parse(w));
+    if (w) {
+      setWorking(JSON.parse(w));
+    } else {
+      setWorking(true);
+    }
   };
 
   const loadToDos = async () => {
-    const s = await AsyncStorage.getItem(STORAGE_KEY);
-    if (s === null) {
-      setToDos({});
-    } else {
+    try {
+      const s = await AsyncStorage.getItem(STORAGE_KEY);
       setToDos(JSON.parse(s));
+      if (s) {
+        setToDos(JSON.parse(s));
+      }
+    } catch (error) {
+      console.log(error);
     }
   };
 
@@ -59,9 +100,12 @@ export default function App() {
     // const newToDos = Object.assign({}, toDos, {
     //   [Date.now()]: { text, work: working },
     // }); ES6 방식으로 보려면 아래처럼.
+
+    toDos[key] = { ...toDos[key], isEdit: false };
+
     const newToDos = {
       ...toDos,
-      [Date.now()]: { text, working },
+      [Date.now()]: { text, working , checked: false, isEdit: false},
     };
     setToDos(newToDos);
     await saveToDos(newToDos);
@@ -84,6 +128,44 @@ export default function App() {
     ]);
   };
 
+  const EditDone = async (key) => {
+    if (!toDos[key].text === "") {
+      return;
+    }
+
+    toDos[key] = { ...toDos[key], isEdit: false };
+
+    const newToDos = {
+      ...toDos,
+      [key]: toDos[key],
+    };
+    setToDos(newToDos);
+    await saveToDos(newToDos);
+  };
+
+  const EditToDo = (key) => {
+    setEditText(text);
+    toDos[key] = { ...toDos[key], isEdit: true };
+    const newToDos = { ...toDos, [key]: toDos[key] };
+    setEdit(true);
+    setToDos(newToDos);
+    saveToDos(newToDos);
+    console.log(toDos);
+  };
+
+  const ResetEdit = () => {
+    const newToDos = { ...toDos };
+    console.log(newToDos);
+  };
+
+  const CancelEdit = (key) => {
+    toDos[key] = { ...toDos[key], isEdit: false };
+    const newToDos = { ...toDos, [key]: toDos[key] };
+    setEdit(false);
+    setToDos(newToDos);
+    saveToDos(newToDos);
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="auto" />
@@ -100,16 +182,53 @@ export default function App() {
           style={styles.input}
         />
         <ScrollView>
-        {Object.keys(toDos).map((key) =>
-          toDos[key].working === working ? (
-            <View style={styles.toDo} key={key}>
-              <Text style={styles.toDoText}>{toDos[key].text}</Text>
-              <TouchableOpacity onPress={() => deleteToDo(key)}>
-                <Fontisto name="trash" size={18} color={theme.grey} />
-              </TouchableOpacity>
-            </View>
-          ) : null
-        )}
+        {toDos &&
+          Object.keys(toDos).map((key) =>
+            toDos[key].working === working ? (
+              <View style={styles.toDo} key={key}>
+                 {toDos[key].isEdit ? (
+                  <>
+                    <TextInput
+                      onSubmitEditing={() => EditDone(key)}
+                      style={styles.editInput}
+                      value={toDos[key].text}
+                      onChangeText={(text) => onEditChangeText({ key, text })}
+                      returnKeyType="done"
+                    ></TextInput>
+                    <TouchableOpacity onPress={() => CancelEdit(key)}>
+                      <MaterialIcons
+                        name="cancel"
+                        size={24}
+                        color={theme.grey}
+                      />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <BouncyCheckbox
+                      text={toDos[key].text}
+                      isChecked={toDos[key].checked}
+                      onPress={() => handleCheck(key)}
+                      size={25}
+                      iconStyle={{ borderColor: "white" }}
+                      fillColor="black"
+                    />
+                    <View style={styles.toolbox}>
+                      <TouchableOpacity onPress={() => EditToDo(key)}>
+                        <Feather name="edit" size={24} color={theme.grey} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => deleteToDo(key)}
+                        style={{ marginLeft: 10 }}
+                      >
+                        <Fontisto name="trash" size={24} color={theme.grey} />
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            ) : null
+          )}
       </ScrollView>
     </View>
   );
@@ -138,6 +257,15 @@ const styles = StyleSheet.create({
     marginVertical: 20,
     fontSize: 18
   },
+  editInput: {
+    flex: 0.8,
+    backgroundColor: "white",
+    paddingVertical: 5,
+    paddingHorizontal: 5,
+    borderRadius: 5,
+    fontSize: 15,
+    color: "black",
+  },
   toDo: {
     backgroundColor: theme.toDoBg,
     marginBottom: 10,
@@ -152,5 +280,8 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "600",
+  },
+  toolbox: {
+    flexDirection: "row",
   },
 });
