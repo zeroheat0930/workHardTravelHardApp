@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { 
@@ -11,9 +12,9 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Platform,
 } from 'react-native';
 import { Fontisto } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from './color';
 import BouncyCheckbox from "react-native-bouncy-checkbox";
 import { Feather } from "@expo/vector-icons";
@@ -33,13 +34,9 @@ export default function App() {
     loadToDos();
   }, []);
 
-  const clearAsyncStorage = async () => {
-    AsyncStorage.clear();
-  };
-
   const travel = () => setWorkMod(false);
   const work = () => setWorkMod(true);
-  const onChangeText = (payload) => setText(payload)
+  const onChangeText = (payload) => setText(payload);
   const onEditChangeText = (payload) => {
     setToDos({
       ...toDos,
@@ -84,7 +81,6 @@ export default function App() {
   const loadToDos = async () => {
     try {
       const s = await AsyncStorage.getItem(STORAGE_KEY);
-      setToDos(JSON.parse(s));
       if (s) {
         setToDos(JSON.parse(s));
       }
@@ -100,9 +96,6 @@ export default function App() {
     // const newToDos = Object.assign({}, toDos, {
     //   [Date.now()]: { text, work: working },
     // }); ES6 방식으로 보려면 아래처럼.
-
-    toDos[key] = { ...toDos[key], isEdit: false };
-
     const newToDos = {
       ...toDos,
       [Date.now()]: { text, working , checked: false, isEdit: false},
@@ -113,19 +106,29 @@ export default function App() {
   }
 
   const deleteToDo = (key) => {
-    Alert.alert("할 일 지우기", "정말 삭제하시겠습니까?", [
-      { text: "취소" },
-      {
-        text: "확인",
-        style: "destructive",
-        onPress: () => {
-          const newToDos = { ...toDos };
-          delete newToDos[key];
-          setToDos(newToDos);
-          saveToDos(newToDos);
+    if (Platform.OS === "web") {
+      const ok = confirm("정말 삭제하시겠습니까?");
+      if (ok) {
+        const newToDos = { ...toDos };
+        delete newToDos[key];
+        setToDos(newToDos);
+        saveToDos(newToDos);
+      }
+    } else {
+      Alert.alert("할 일 지우기", "정말 삭제하시겠습니까?", [
+        { text: "취소" },
+        {
+          text: "확인",
+          style: "destructive",
+          onPress: async () => {
+            const newToDos = { ...toDos };
+            delete newToDos[key];
+            setToDos(newToDos);
+            await saveToDos(newToDos);
+          },
         },
-      },
-    ]);
+      ]);
+    }
   };
 
   const EditDone = async (key) => {
@@ -144,18 +147,11 @@ export default function App() {
   };
 
   const EditToDo = (key) => {
-    setEditText(text);
     toDos[key] = { ...toDos[key], isEdit: true };
     const newToDos = { ...toDos, [key]: toDos[key] };
     setEdit(true);
     setToDos(newToDos);
     saveToDos(newToDos);
-    console.log(toDos);
-  };
-
-  const ResetEdit = () => {
-    const newToDos = { ...toDos };
-    console.log(newToDos);
   };
 
   const CancelEdit = (key) => {
@@ -166,12 +162,37 @@ export default function App() {
     saveToDos(newToDos);
   };
 
+  const ResetEdit = () => {
+    const newToDos = { ...toDos };
+    console.log(newToDos);
+  };
+
   return (
     <View style={styles.container}>
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={work}><Text style={{...styles.btnText, color: working ? "white": theme.grey}}>Work</Text></TouchableOpacity>
-        <TouchableOpacity onPress={travel}><Text style={{...styles.btnText, color: !working ? "white": theme.grey}}>Travel</Text></TouchableOpacity>
+        <TouchableOpacity onPress={work}>
+          <Text
+            style={{
+              fontSize: 38,
+              fontWeight: "600",
+              color: working ? "white" : theme.grey,
+            }}
+          >
+            Work
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={travel}>
+          <Text
+            style={{
+              fontSize: 38,
+              fontWeight: "600",
+              color: working ? theme.grey : "white",
+            }}
+          >
+            Travel
+          </Text>
+        </TouchableOpacity>
       </View>
         <TextInput
           onSubmitEditing={addToDo}
@@ -245,13 +266,9 @@ const styles = StyleSheet.create({
     flexDirection:"row",
     marginTop:100,
   },
-  btnText:{
-    fontSize: 38,
-    fontWeight: "600",
-  },
   input:{
     backgroundColor: "white",
-    paddingVertical: 15,
+    paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 30,
     marginVertical: 20,
@@ -267,19 +284,19 @@ const styles = StyleSheet.create({
     color: "black",
   },
   toDo: {
+    flexDirection: "row",
     backgroundColor: theme.toDoBg,
     marginBottom: 10,
     paddingVertical: 20,
     paddingHorizontal: 20,
     borderRadius: 15,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   toDoText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "500",
   },
   toolbox: {
     flexDirection: "row",
