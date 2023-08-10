@@ -293,11 +293,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  toDoText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "500",
-  },
   toolbox: {
     flexDirection: "row",
   },
